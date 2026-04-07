@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live GPS Session</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero">
+        <p class="eyebrow">Project Live GPS</p>
+        <h1>Share or watch a live location session.</h1>
+        <p class="hero-copy">
+          Open a viewer session to watch incoming coordinates, or start sharing your current
+          location from a device with GPS. If precise device geolocation is unavailable, the app
+          falls back to an IP-based estimate.
+        </p>
+
+        <div class="action-grid">
+          <button class="primary-action" id="openViewerBtn">Open Viewer Session</button>
+          <button class="secondary-action" id="openCreatorBtn">Create Live Location</button>
+        </div>
+      </section>
+
+      <section class="panel hidden" id="viewerPanel">
+        <div class="panel-header">
+          <div>
+            <p class="section-label">Viewer</p>
+            <h2>Watch live GPS data</h2>
+          </div>
+          <button class="ghost-button" data-close-panel="viewerPanel">Close</button>
+        </div>
+
+        <div class="stack">
+          <div class="session-box">
+            <p class="section-label">Session code</p>
+            <div class="session-row">
+              <strong id="viewerSessionId">-</strong>
+              <button class="ghost-button" id="copySessionBtn">Copy code</button>
+            </div>
+            <p class="helper-text">
+              Share this code with the device that will broadcast location updates.
+            </p>
+          </div>
+
+          <div class="status-strip">
+            <span id="viewerStatus">Creating session…</span>
+            <span id="viewerStats">Waiting for a broadcaster</span>
+          </div>
+
+          <div class="location-card">
+            <div class="location-grid">
+              <div>
+                <p class="metric-label">Latitude</p>
+                <p class="metric-value" id="viewerLat">-</p>
+              </div>
+              <div>
+                <p class="metric-label">Longitude</p>
+                <p class="metric-value" id="viewerLon">-</p>
+              </div>
+              <div>
+                <p class="metric-label">Accuracy</p>
+                <p class="metric-value" id="viewerAccuracy">-</p>
+              </div>
+              <div>
+                <p class="metric-label">Source</p>
+                <p class="metric-value" id="viewerSource">-</p>
+              </div>
+            </div>
+
+            <p class="helper-text" id="viewerTimestamp">No live position received yet.</p>
+            <a id="mapLink" class="map-link hidden" href="#" target="_blank" rel="noreferrer">
+              Open in maps
+            </a>
+          </div>
+
+          <iframe
+            id="mapFrame"
+            class="map-frame hidden"
+            title="Live location map"
+            loading="lazy"
+          ></iframe>
+        </div>
+      </section>
+
+      <section class="panel hidden" id="creatorPanel">
+        <div class="panel-header">
+          <div>
+            <p class="section-label">Broadcaster</p>
+            <h2>Create and share live location</h2>
+          </div>
+          <button class="ghost-button" data-close-panel="creatorPanel">Close</button>
+        </div>
+
+        <div class="stack">
+          <label class="input-group" for="creatorSessionInput">
+            <span>Viewer session code</span>
+            <input
+              id="creatorSessionInput"
+              type="text"
+              placeholder="Enter session code"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </label>
+
+          <div class="action-grid single-column">
+            <button class="primary-action" id="startSharingBtn">Start sharing location</button>
+            <button class="ghost-button" id="stopSharingBtn" disabled>Stop sharing</button>
+          </div>
+
+          <div class="status-strip">
+            <span id="creatorStatus">Idle</span>
+            <span id="creatorSource">Source: not started</span>
+          </div>
+
+          <div class="location-card">
+            <div class="location-grid">
+              <div>
+                <p class="metric-label">Latitude</p>
+                <p class="metric-value" id="creatorLat">-</p>
+              </div>
+              <div>
+                <p class="metric-label">Longitude</p>
+                <p class="metric-value" id="creatorLon">-</p>
+              </div>
+              <div>
+                <p class="metric-label">Accuracy</p>
+                <p class="metric-value" id="creatorAccuracy">-</p>
+              </div>
+              <div>
+                <p class="metric-label">Last update</p>
+                <p class="metric-value small" id="creatorTimestamp">-</p>
+              </div>
+            </div>
+            <p class="helper-text">
+              GPS uses the device sensor when available. IP fallback is a rough estimate and should
+              be treated as approximate only.
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
