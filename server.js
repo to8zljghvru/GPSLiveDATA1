@@ -40,6 +40,15 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true, sessions: sessions.size });
 });
 
+app.get("/:sessionId", (req, res) => {
+  if (req.params.sessionId.toLowerCase() === "health") {
+    res.status(404).end();
+    return;
+  }
+
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
 io.on("connection", (socket) => {
   socket.on("viewer:join", (sessionId) => {
     const normalized = String(sessionId || "").trim().toUpperCase();
