@@ -4,7 +4,10 @@ const state = {
   viewerSessionId: "",
   creatorSessionId: "",
   watchId: null,
-  creatorJoined: false
+  creatorJoined: false,
+  map: null,
+  marker: null,
+  accuracyCircle: null
 };
 
 const elements = {
@@ -23,6 +26,8 @@ const elements = {
   mapLink: document.getElementById("mapLink"),
   mapFrame: document.getElementById("mapFrame"),
   copySessionBtn: document.getElementById("copySessionBtn"),
+  shareLinkInput: document.getElementById("shareLinkInput"),
+  copyShareLinkBtn: document.getElementById("copyShareLinkBtn"),
   creatorSessionInput: document.getElementById("creatorSessionInput"),
   startSharingBtn: document.getElementById("startSharingBtn"),
   stopSharingBtn: document.getElementById("stopSharingBtn"),
@@ -59,6 +64,43 @@ function setPanelVisible(panel, visible) {
   panel.classList.toggle("hidden", !visible);
 }
 
+function buildShareUrl(sessionId) {
+  return `${window.location.origin}/${encodeURIComponent(sessionId)}`;
+}
+
+function ensureMap() {
+  if (state.map) {
+    return state.map;
+  }
+
+  state.map = L.map(elements.mapFrame, {
+    zoomControl: true
+  }).setView([20, 0], 2);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(state.map);
+
+  state.marker = L.marker([20, 0]).addTo(state.map);
+  state.accuracyCircle = L.circle([20, 0], {
+    radius: 0,
+    color: "#74c0fc",
+    fillColor: "#74c0fc",
+    fillOpacity: 0.18,
+    weight: 1
+  }).addTo(state.map);
+
+  return state.map;
+}
+
+function syncViewerUrl(sessionId) {
+  const targetPath = sessionId ? `/${encodeURIComponent(sessionId)}` : "/";
+  if (window.location.pathname !== targetPath) {
+    window.history.replaceState({}, "", targetPath);
+  }
+}
+
 function closeAllPanels() {
   setPanelVisible(elements.viewerPanel, false);
   setPanelVisible(elements.creatorPanel, false);
@@ -75,16 +117,14 @@ function updateViewerLocation(data) {
   const mapUrl = `https://www.google.com/maps?q=${encodeURIComponent(`${data.lat},${data.lon}`)}`;
   elements.mapLink.href = mapUrl;
   elements.mapLink.classList.remove("hidden");
-
-  const delta = 0.015;
-  const bbox = [
-    data.lon - delta,
-    data.lat - delta,
-    data.lon + delta,
-    data.lat + delta
-  ].join("%2C");
-  elements.mapFrame.src = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${data.lat}%2C${data.lon}`;
   elements.mapFrame.classList.remove("hidden");
+  const map = ensureMap();
+  const latLng = [data.lat, data.lon];
+  state.marker.setLatLng(latLng);
+  state.accuracyCircle.setLatLng(latLng);
+  state.accuracyCircle.setRadius(Number.isFinite(data.accuracy) ? data.accuracy : 0);
+  map.setView(latLng, 16, { animate: true });
+  window.setTimeout(() => map.invalidateSize(), 50);
 }
 
 function updateCreatorLocation(data) {
@@ -109,6 +149,22 @@ async function copySessionCode() {
     }, 1400);
   } catch (_error) {
     elements.viewerStatus.textContent = "Could not copy the session code automatically.";
+  }
+}
+
+async function copyShareLink() {
+  if (!elements.shareLinkInput.value) {
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(elements.shareLinkInput.value);
+    elements.copyShareLinkBtn.textContent = "Copied";
+    window.setTimeout(() => {
+      elements.copyShareLinkBtn.textContent = "Copy link";
+    }, 1400);
+  } catch (_error) {
+    elements.viewerStatus.textContent = "Could not copy the share link automatically.";
   }
 }
 
@@ -251,8 +307,10 @@ elements.openViewerBtn.addEventListener("click", () => {
   setPanelVisible(elements.viewerPanel, true);
   state.viewerSessionId = randomSessionId();
   elements.viewerSessionId.textContent = state.viewerSessionId;
+  elements.shareLinkInput.value = buildShareUrl(state.viewerSessionId);
   elements.viewerStatus.textContent = "Session ready. Waiting for a broadcaster.";
   elements.viewerStats.textContent = "Waiting for a broadcaster";
+  syncViewerUrl(state.viewerSessionId);
   socket.emit("viewer:join", state.viewerSessionId);
 });
 
@@ -263,6 +321,7 @@ elements.openCreatorBtn.addEventListener("click", () => {
 });
 
 elements.copySessionBtn.addEventListener("click", copySessionCode);
+elements.copyShareLinkBtn.addEventListener("click", copyShareLink);
 elements.startSharingBtn.addEventListener("click", startSharing);
 elements.stopSharingBtn.addEventListener("click", stopSharing);
 
@@ -278,6 +337,8 @@ document.querySelectorAll("[data-close-panel]").forEach((button) => {
 
 socket.on("viewer:joined", (payload) => {
   elements.viewerSessionId.textContent = payload.sessionId;
+  elements.shareLinkInput.value = buildShareUrl(payload.sessionId);
+  syncViewerUrl(payload.sessionId);
   if (payload.latestLocation) {
     updateViewerLocation(payload.latestLocation);
   }
@@ -306,3 +367,19 @@ socket.on("session:error", (message) => {
   elements.creatorStatus.textContent = message;
   elements.startSharingBtn.disabled = false;
 });
+
+(function bootFromPath() {
+  const sessionFromPath = decodeURIComponent(window.location.pathname.replace(/^\/+/, "")).trim().toUpperCase();
+  if (!sessionFromPath) {
+    return;
+  }
+
+  closeAllPanels();
+  setPanelVisible(elements.viewerPanel, true);
+  state.viewerSessionId = sessionFromPath;
+  elements.viewerSessionId.textContent = sessionFromPath;
+  elements.shareLinkInput.value = buildShareUrl(sessionFromPath);
+  elements.viewerStatus.textContent = "Session opened from shared link.";
+  elements.viewerStats.textContent = "Waiting for a broadcaster";
+  socket.emit("viewer:join", sessionFromPath);
+})();
