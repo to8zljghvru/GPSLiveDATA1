@@ -37,7 +37,7 @@ function cleanupSession(sessionId) {
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, sessions: sessions.size });
+  res.status(200).type("text/plain").send("ok");
 });
 
 app.get("/:sessionId", (req, res) => {
